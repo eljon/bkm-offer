@@ -266,13 +266,15 @@
         : '<div class="oc-noimg">🧾</div>';
       const date = new Date(o.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       return `<div class="offer-card" data-id="${o.id}">
-        <div class="oc-thumbs">${thumbs}</div>
-        <div class="oc-main">
-          <h3>${esc(o.title) || 'Untitled offer'}</h3>
-          <div class="oc-meta">${items.length} item${items.length === 1 ? '' : 's'} · ${date}</div>
+        <div class="oc-top" data-act="preview">
+          <div class="oc-thumbs">${thumbs}</div>
+          <div class="oc-main">
+            <h3>${esc(o.title) || 'Untitled offer'}</h3>
+            <div class="oc-meta">${items.length} item${items.length === 1 ? '' : 's'} · ${date}</div>
+          </div>
         </div>
         <div class="oc-actions">
-          <button class="oc-pdf" data-act="preview" title="Preview & export PDF">PDF</button>
+          <button class="oc-pdf" data-act="preview" title="Preview & export PDF">⬇ PDF</button>
           <button class="icon-btn" data-act="dup" title="Duplicate">⧉</button>
           <button class="icon-btn" data-act="edit" title="Edit">✎</button>
         </div>
