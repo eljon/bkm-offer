@@ -6,14 +6,16 @@
   const state = {
     products: [],
     offers: [],
-    settings: { currency: '$', defaultStore: '' },
+    settings: { currency: '$', logo: null },
     selectedProductIds: new Set(),   // products view multi-select
     pickerSelected: new Set(),       // picker modal selection
     editingProductId: null,          // product modal target
     currentImage: null,              // data URL in product modal
+    fileLogo: null,                  // logo loaded from assets/logo.png (fallback)
     offer: null,                     // offer being built
   };
 
+  const DEFAULT_TITLE = 'New Arrivals Limited Stock Only';
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -21,6 +23,8 @@
 
   // ---------- Money helpers ----------
   const cur = () => state.settings.currency || '$';
+  // Logo shown on offers: uploaded (stored) logo wins, else a committed assets/logo.png
+  const currentLogo = () => state.settings.logo || state.fileLogo || null;
   function fmt(n) {
     if (n == null || isNaN(n)) return '';
     const v = Math.round(n * 100) / 100;
@@ -323,7 +327,7 @@
     state.offer = {
       id: uid(),
       title: (o.title || 'Offer') + ' (copy)',
-      store: o.store, footer: o.footer, accent: o.accent,
+      footer: o.footer, accent: o.accent,
       items: (o.items || []).map(i => ({ ...i, _iid: uid() })),
       createdAt: Date.now(), updatedAt: Date.now(),
       _isNew: true,
@@ -351,8 +355,7 @@
   function newOffer() {
     state.offer = {
       id: uid(),
-      title: '',
-      store: state.settings.defaultStore || '',
+      title: DEFAULT_TITLE,
       footer: '',
       accent: '#e11d48',
       items: [],
@@ -367,7 +370,6 @@
     const o = state.offer;
     $('#buildTitle').textContent = o._isNew ? 'New Offer' : 'Edit Offer';
     $('#offerTitle').value = o.title || '';
-    $('#offerStore').value = o.store || '';
     $('#offerFooter').value = o.footer || '';
     $('#offerAccent').value = o.accent || '#e11d48';
     renderOfferItems();
@@ -502,7 +504,6 @@
   function syncOfferFromForm() {
     if (!state.offer) return;
     state.offer.title = $('#offerTitle').value.trim();
-    state.offer.store = $('#offerStore').value.trim();
     state.offer.footer = $('#offerFooter').value.trim();
     state.offer.accent = $('#offerAccent').value;
   }
@@ -514,7 +515,6 @@
     const clean = {
       id: state.offer.id,
       title: state.offer.title,
-      store: state.offer.store,
       footer: state.offer.footer,
       accent: state.offer.accent,
       items: state.offer.items.map(({ _iid, product, name, description, price, mode, discount, image }) =>
@@ -618,18 +618,20 @@
       return `<section class="sgroup">${heading}<div class="sheet-grid">${gitems.map(variantCard).join('')}</div></section>`;
     }).join('');
 
-    const dealCount = items.length;
+    const logo = currentLogo();
+    const logoEl = logo
+      ? `<img class="sheet-logo" src="${logo}" alt="logo">`
+      : `<div class="sheet-wordmark">BJ Auto Parts Supply</div>`;
+    const footer = offer.footer
+      ? `<div class="sheet-footer"><span>${esc(offer.footer)}</span></div>` : '';
     return `<div class="sheet" style="--accent:${accent}">
-      <div class="sheet-header" style="background:${accent}">
-        ${offer.store ? `<div class="sh-store">${esc(offer.store)}</div>` : ''}
-        <h1 class="sh-title">${esc(offer.title) || 'Special Offer'}</h1>
-        <div class="sh-badge" style="color:${accent}">${dealCount} DEAL${dealCount === 1 ? '' : 'S'}</div>
+      <div class="sheet-top">
+        ${logoEl}
+        <h1 class="sheet-title">${esc(offer.title) || DEFAULT_TITLE}</h1>
+        <div class="sheet-rule" style="background:${accent}"></div>
       </div>
       <div class="sheet-body">${sections}</div>
-      <div class="sheet-footer">
-        <span>${esc(offer.footer) || ''}</span>
-        <span class="sf-brand" style="color:${accent}">${esc(offer.store) || 'Offer Maker'}</span>
-      </div>
+      ${footer}
     </div>`;
   }
 
@@ -710,13 +712,39 @@
   // =========================================================
   function openSettings() {
     $('#currencyInput').value = state.settings.currency || '$';
-    $('#defaultStoreInput').value = state.settings.defaultStore || '';
+    renderLogoSetting();
+    $('#dbStatus').textContent = DB.backend === 'firestore'
+      ? '☁ Cloud Firestore (connected)'
+      : '📱 On-device only — add your Firebase config in js/firebase-config.js to sync.';
     openModal('settingsModal');
+  }
+  function renderLogoSetting() {
+    const prev = $('#logoPreview');
+    const logo = currentLogo();
+    prev.innerHTML = logo ? `<img src="${logo}" alt="logo">` : '<span>No logo</span>';
+    $('#removeLogoBtn').classList.toggle('hidden', !state.settings.logo);
   }
   async function saveSettings() {
     state.settings.currency = $('#currencyInput').value.trim() || '$';
-    state.settings.defaultStore = $('#defaultStoreInput').value.trim();
-    await DB.put('settings', { key: 'app', ...state.settings });
+    await persistSettings();
+  }
+  async function persistSettings() {
+    await DB.put('settings', { key: 'app', currency: state.settings.currency, logo: state.settings.logo || null });
+  }
+  async function setLogo(file) {
+    try {
+      // Logos are wide; allow more width, keep file small for the DB
+      state.settings.logo = await fileToResizedDataURL(file, 1200, 0.85);
+      await persistSettings();
+      renderLogoSetting();
+      toast('Logo saved');
+    } catch { toast('Could not load logo', true); }
+  }
+  async function removeLogo() {
+    state.settings.logo = null;
+    await persistSettings();
+    renderLogoSetting();
+    toast('Logo removed');
   }
 
   async function exportData() {
@@ -773,7 +801,21 @@
       if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
     }));
     const s = await DB.get('settings', 'app');
-    if (s) state.settings = { currency: s.currency || '$', defaultStore: s.defaultStore || '' };
+    if (s) state.settings = { currency: s.currency || '$', logo: s.logo || null };
+    if (!state.settings.logo) await loadFileLogo();
+  }
+
+  // Optional: use a committed assets/logo.png as the logo when none is stored
+  async function loadFileLogo() {
+    try {
+      const res = await fetch('assets/logo.png', { cache: 'force-cache' });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      state.fileLogo = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(blob);
+      });
+    } catch { /* no file logo — falls back to wordmark */ }
   }
 
   // =========================================================
@@ -814,7 +856,7 @@
     $('#addItemInlineBtn').addEventListener('click', addInlineItem);
     $('#pickerAddBtn').addEventListener('click', addPickedToOffer);
     $('#previewBtn').addEventListener('click', openPreview);
-    ['#offerTitle', '#offerStore', '#offerFooter', '#offerAccent'].forEach(s =>
+    ['#offerTitle', '#offerFooter', '#offerAccent'].forEach(s =>
       $(s).addEventListener('input', syncOfferFromForm));
 
     // Export
@@ -824,7 +866,8 @@
     // Settings
     $('#settingsBtn').addEventListener('click', openSettings);
     $('#currencyInput').addEventListener('input', saveSettings);
-    $('#defaultStoreInput').addEventListener('input', saveSettings);
+    $('#logoInput').addEventListener('change', (e) => { if (e.target.files[0]) setLogo(e.target.files[0]); });
+    $('#removeLogoBtn').addEventListener('click', removeLogo);
     $('#exportDataBtn').addEventListener('click', exportData);
     $('#importDataInput').addEventListener('change', (e) => { if (e.target.files[0]) importData(e.target.files[0]); });
     $('#wipeBtn').addEventListener('click', wipeData);
