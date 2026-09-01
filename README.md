@@ -33,18 +33,20 @@ backend, no accounts. Perfect for GitHub Pages.
 Tip: on a product card, tap to **select** (for multi-offer creation) and tap the
 ✎ button to **edit**.
 
-## Deploying to GitHub Pages
+## Deploying to GitHub Pages (deploy from a branch)
 
-This repo ships a GitHub Actions workflow (`.github/workflows/deploy.yml`) that
-publishes the site automatically.
+The app is a plain static site (`index.html`, `css/`, `js/`) served straight
+from a branch — no build step, no GitHub Actions.
 
 1. In your repository, go to **Settings → Pages**.
-2. Under **Build and deployment → Source**, choose **GitHub Actions**.
-3. Push to `main` (or run the *Deploy to GitHub Pages* workflow manually). The
-   site will be available at `https://<user>.github.io/<repo>/`.
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+3. Set **Branch** to the branch that holds this code (e.g. `main`) and the
+   folder to **`/ (root)`**, then **Save**.
+4. The site will be available at `https://<user>.github.io/<repo>/`.
 
-The app is a static site — `index.html`, `css/`, and `js/` — so it also works
-from any static host or by opening `index.html` locally.
+The included `.nojekyll` file tells GitHub Pages to serve the files as-is
+(no Jekyll processing). The app also works from any static host or by opening
+`index.html` locally.
 
 ## Tech
 
