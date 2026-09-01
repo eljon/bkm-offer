@@ -43,6 +43,11 @@
     }
     return { price, net: price, discountPct: 0, hasDiscount: false };
   }
+  // "LESS x%" percent, or null when not a percent-discount item
+  function lessPct(p) {
+    const d = parseFloat(p.discount);
+    return (p.mode === 'percent' && !isNaN(d) && d > 0) ? Math.round(d) : null;
+  }
 
   // ---------- Toast ----------
   let toastT;
@@ -124,13 +129,16 @@
     const img = p.image
       ? `<img class="pimg" src="${p.image}" alt="">`
       : `<div class="pimg ph">📦</div>`;
-    const disc = pr.hasDiscount ? `<span class="disc-tag">-${pr.discountPct}%</span>` : '';
-    const priceLine = pr.hasDiscount
-      ? `<span class="pp"><s>${fmt(pr.price)}</s> <b>${fmt(pr.net)}</b></span>`
-      : (pr.price != null ? `<span class="pp"><b>${fmt(pr.price)}</b></span>` : '');
+    const less = lessPct(p);
+    let priceLine = '';
+    if (pr.price != null) {
+      if (less != null) priceLine = `<span class="pp"><b>${fmt(pr.price)}</b> <span class="pless">LESS ${less}%</span></span>`;
+      else if (p.mode === 'net' && pr.hasDiscount) priceLine = `<span class="pp"><s>${fmt(pr.price)}</s> <b>${fmt(pr.net)}</b></span>`;
+      else priceLine = `<span class="pp"><b>${fmt(pr.price)}</b></span>`;
+    }
     const editBtn = showEdit ? `<button class="pedit" data-act="edit" aria-label="Edit">✎</button>` : '';
     return `<div class="pcard ${selected ? 'selected' : ''}" data-id="${p.id}">
-      <div class="check">✓</div>${disc}${editBtn}
+      <div class="check">✓</div>${editBtn}
       ${img}
       <div class="pbody">
         <p class="pn">${esc(p.name) || 'Untitled'}</p>
@@ -205,11 +213,15 @@
   }
 
   function updatePriceHint() {
-    const pr = computePricing(readProductForm());
+    const form = readProductForm();
+    const pr = computePricing(form);
     const hint = $('#priceHint');
     if (pr.price == null) { hint.textContent = ''; return; }
-    if (pr.hasDiscount) {
-      hint.innerHTML = `Was ${fmt(pr.price)} → <b>${fmt(pr.net)}</b> · save ${fmt(pr.price - pr.net)} (${pr.discountPct}%)`;
+    const less = lessPct(form);
+    if (less != null) {
+      hint.innerHTML = `Shows <b>${fmt(pr.price)}</b> · <b>LESS ${less}%</b> badge`;
+    } else if (form.mode === 'net' && pr.hasDiscount) {
+      hint.innerHTML = `Was ${fmt(pr.price)} → net <b>${fmt(pr.net)}</b>`;
     } else {
       hint.innerHTML = `Price <b>${fmt(pr.price)}</b>`;
     }
@@ -361,9 +373,13 @@
     host.innerHTML = items.map(it => {
       const pr = computePricing(it);
       const img = it.image ? `<img src="${it.image}" alt="">` : `<div class="oi-ph">📦</div>`;
-      const price = pr.hasDiscount
-        ? `<span class="oi-price"><s>${fmt(pr.price)}</s><b>${fmt(pr.net)}</b> · -${pr.discountPct}%</span>`
-        : (pr.price != null ? `<span class="oi-price"><b>${fmt(pr.price)}</b></span>` : '');
+      const less = lessPct(it);
+      let price = '';
+      if (pr.price != null) {
+        if (less != null) price = `<span class="oi-price"><b>${fmt(pr.price)}</b> <span class="oi-less">LESS ${less}%</span></span>`;
+        else if (it.mode === 'net' && pr.hasDiscount) price = `<span class="oi-price"><s>${fmt(pr.price)}</s><b>${fmt(pr.net)}</b></span>`;
+        else price = `<span class="oi-price"><b>${fmt(pr.price)}</b></span>`;
+      }
       return `<div class="oitem" data-iid="${it._iid}">
         ${img}
         <div class="oi-main">
@@ -530,16 +546,17 @@
       const img = it.image
         ? `<div class="s-imgwrap"><img src="${it.image}" alt=""></div>`
         : `<div class="s-imgwrap"><span class="s-noimg">📦</span></div>`;
-      const disc = pr.hasDiscount ? `<span class="s-disc" style="background:${accent}">-${pr.discountPct}%</span>` : '';
+      const less = lessPct(it);
       let priceBlock;
       if (pr.price == null) priceBlock = '';
-      else if (pr.hasDiscount) {
+      else if (less != null) {
+        priceBlock = `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span><span class="s-less" style="background:${accent}">LESS ${less}%</span></div>`;
+      } else if (it.mode === 'net' && pr.hasDiscount) {
         priceBlock = `<div class="s-price"><span class="s-old">${fmt(pr.price)}</span><span class="s-new">${fmt(pr.net)}</span></div>`;
       } else {
         priceBlock = `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span></div>`;
       }
       return `<div class="scard">
-        ${disc}
         ${img}
         <div class="s-body">
           <p class="s-name">${esc(it.name) || 'Untitled'}</p>
