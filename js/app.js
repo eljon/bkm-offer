@@ -569,15 +569,11 @@
       const img = it.image
         ? `<div class="s-imgwrap"><img src="${it.image}" alt=""></div>`
         : `<div class="s-imgwrap"><span class="s-noimg">📦</span></div>`;
-      const less = lessPct(it);
-      const burst = less != null
-        ? `<div class="s-burst" style="background:${accent}"><b>${less}%</b><span>OFF</span></div>`
-        : `<div class="s-burst s-burst-net" style="background:${dark}"><b>NET</b></div>`;
       const priceBlock = pr.price == null ? ''
-        : `<div class="s-price" style="color:${dark}"><span class="s-cur">${cur()}</span><span class="s-single">${fmt(pr.price).replace(cur(), '')}</span></div>`;
+        : `<div class="s-price"><span class="s-price-val" style="color:${dark}"><span class="s-cur">${cur()}</span><span class="s-single">${fmt(pr.price).replace(cur(), '')}</span></span>${badgeHTML(it, 's-badge', 's-badge s-badge-net', accent)}</div>`;
       const desc = it.description ? `<p class="s-desc">${esc(it.description)}</p>` : '';
       return `<div class="scard">
-        <div class="s-imgbox">${img}${pr.price != null ? burst : ''}</div>
+        <div class="s-imgbox">${img}</div>
         <div class="s-body">
           ${desc}
           ${priceBlock}

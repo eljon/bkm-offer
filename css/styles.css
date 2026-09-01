@@ -277,19 +277,17 @@ textarea{resize:vertical}
   display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden}
 .scard .s-imgwrap img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 .scard .s-imgwrap .s-noimg{font-size:34px;color:#c3c9d9}
-/* circular burst badge */
-.scard .s-burst{position:absolute;top:10px;right:10px;z-index:4;width:60px;height:60px;border-radius:50%;
-  color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;
-  transform:rotate(-8deg);border:3px solid #fff;box-shadow:0 5px 12px rgba(0,0,0,.22)}
-.scard .s-burst b{font-size:19px;font-weight:800}
-.scard .s-burst span{font-size:10px;font-weight:800;letter-spacing:1px}
-.scard .s-burst-net b{font-size:17px}
+/* round-rect discount badge next to the price */
+.scard .s-badge{color:#fff;font-size:12px;font-weight:800;letter-spacing:.4px;padding:5px 10px;border-radius:8px;
+  font-variant:all-small-caps;line-height:1;white-space:nowrap}
+.scard .s-badge-net{background:#475569}
 .scard .s-body{padding:13px 15px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
 .scard .s-desc{font-size:12.5px;color:#5b6480;line-height:1.4;margin:0;flex:1;font-weight:500;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.scard .s-price{display:flex;align-items:baseline;gap:2px;margin-top:2px}
+.scard .s-price{display:flex;align-items:center;gap:9px;margin-top:2px;flex-wrap:wrap}
+.scard .s-price-val{display:inline-flex;align-items:baseline;gap:2px}
 .scard .s-cur{font-size:16px;font-weight:800;align-self:flex-start;margin-top:4px;color:inherit}
-.scard .s-single{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:1;color:inherit}
+.scard .s-single{font-size:29px;font-weight:800;letter-spacing:-1px;line-height:1;color:inherit}
 
 /* ---- FOOTER ---- */
 .sheet-footer{padding:16px 40px;color:#fff;font-size:14px;letter-spacing:1.5px;
