@@ -40,6 +40,9 @@ const DB = (() => {
   function makeFirestore() {
     firebase.initializeApp(window.FIREBASE_CONFIG);
     const fs = firebase.firestore();
+    // Don't throw when a field is undefined (e.g. a product without a description
+    // or image) — just omit it, so a single missing field can't fail a write.
+    try { fs.settings({ ignoreUndefinedProperties: true }); } catch (e) { /* already started */ }
     const idOf = (v) => v.id || v.key;
     return {
       kind: 'firestore',

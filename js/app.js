@@ -485,13 +485,21 @@
     const existing = state.offers.find(o => o.id === state.offer.id);
     const clean = {
       id: state.offer.id,
-      title: state.offer.title,
-      footer: state.offer.footer,
-      accent: state.offer.accent,
-      items: state.offer.items.map(({ _iid, product, description, price, discount, image }) =>
-        ({ _iid, product: product || '', name: '', description, price, discount, image })),
-      createdAt: state.offer.createdAt,
-      updatedAt: state.offer.updatedAt,
+      title: state.offer.title || '',
+      footer: state.offer.footer || '',
+      accent: state.offer.accent || '#e11d48',
+      // Coerce every field so a missing value (undefined) can never reject the write
+      items: state.offer.items.map(({ _iid, product, description, price, discount, image }) => ({
+        _iid: _iid || uid(),
+        product: product || '',
+        name: '',
+        description: description || '',
+        price: price == null ? '' : price,
+        discount: discount == null ? '' : discount,
+        image: image || null,
+      })),
+      createdAt: state.offer.createdAt || Date.now(),
+      updatedAt: state.offer.updatedAt || Date.now(),
     };
     if (existing) Object.assign(existing, clean);
     else state.offers.push(clean);
@@ -624,13 +632,19 @@
     openModal('previewModal');
   }
 
-  // From the builder: sync form, save, then preview
+  // From the builder: render the preview first (never blocked by saving),
+  // then persist in the background so a save failure can't stop the preview.
   async function openPreview() {
     syncOfferFromForm();
     if (!state.offer.items.length) { toast('Add at least one item first', true); return; }
-    await saveOffer(); // persist as we preview
     showPreview();
-    renderOffers();
+    try {
+      await saveOffer();
+      renderOffers();
+    } catch (e) {
+      console.error('Save failed:', e);
+      toast('Preview ready — could not save the offer', true);
+    }
   }
 
   // From the Offers list: preview a saved offer without entering the builder
