@@ -551,8 +551,17 @@
   // =========================================================
   //  OFFER SHEET (preview + export)
   // =========================================================
+  // Shade a hex color toward black (p<0) or white (p>0)
+  function shade(hex, p) {
+    const n = parseInt((hex || '#e11d48').replace('#', ''), 16);
+    let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const mix = (c) => Math.round(p < 0 ? c * (1 + p) : c + (255 - c) * p);
+    return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+  }
+
   function buildSheet(offer) {
     const accent = offer.accent || '#e11d48';
+    const dark = shade(accent, -0.34);
     const items = offer.items || [];
 
     const variantCard = (it) => {
@@ -560,12 +569,15 @@
       const img = it.image
         ? `<div class="s-imgwrap"><img src="${it.image}" alt=""></div>`
         : `<div class="s-imgwrap"><span class="s-noimg">📦</span></div>`;
+      const less = lessPct(it);
+      const burst = less != null
+        ? `<div class="s-burst" style="background:${accent}"><b>${less}%</b><span>OFF</span></div>`
+        : `<div class="s-burst s-burst-net" style="background:${dark}"><b>NET</b></div>`;
       const priceBlock = pr.price == null ? ''
-        : `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span>${badgeHTML(it, 's-less', 's-net', accent)}</div>`;
-      // Variant card shows only the variant detail — the product title is the section heading
+        : `<div class="s-price" style="color:${dark}"><span class="s-cur">${cur()}</span><span class="s-single">${fmt(pr.price).replace(cur(), '')}</span></div>`;
       const desc = it.description ? `<p class="s-desc">${esc(it.description)}</p>` : '';
       return `<div class="scard">
-        ${img}
+        <div class="s-imgbox">${img}${pr.price != null ? burst : ''}</div>
         <div class="s-body">
           ${desc}
           ${priceBlock}
@@ -573,27 +585,32 @@
       </div>`;
     };
 
-    // One section per product, title shown once (with an accent bullet)
+    // One section per product — banner ribbon with the product title
     const sections = groupItems(items).map(([title, gitems]) => {
-      const heading = title
-        ? `<div class="sgroup-title" style="border-color:${accent}"><span class="sgt-dot" style="background:${accent}"></span>${esc(title)}</div>` : '';
-      return `<section class="sgroup">${heading}<div class="sheet-grid">${gitems.map(variantCard).join('')}</div></section>`;
+      const banner = title
+        ? `<div class="s-banner" style="background:${accent}"><span class="s-banner-tip" style="border-top-color:${dark}"></span>${esc(title)}</div>` : '';
+      return `<section class="sgroup">${banner}<div class="sheet-grid">${gitems.map(variantCard).join('')}</div></section>`;
     }).join('');
 
     const logo = currentLogo();
     const logoEl = logo
-      ? `<img class="sheet-logo" src="${logo}" alt="logo">`
-      : `<div class="sheet-wordmark">BJ Auto Parts Supply</div>`;
-    const footerText = esc(offer.footer) || '';
+      ? `<img class="hero-logo-img" src="${logo}" alt="logo">`
+      : `<div class="hero-wordmark">BJ Auto Parts Supply</div>`;
+    const footerText = esc(offer.footer) || 'LIMITED STOCK ONLY';
+    const title = esc(offer.title) || DEFAULT_TITLE;
     return `<div class="sheet" style="--accent:${accent}">
-      <div class="deco-spine" style="background:${accent}"></div>
-      <div class="deco-blob" style="background:${accent}"></div>
-      <div class="sheet-top" style="border-color:${accent}">
-        ${logoEl}
-        <h1 class="sheet-title">${esc(offer.title) || DEFAULT_TITLE}</h1>
+      <div class="hero" style="background:linear-gradient(135deg, ${accent} 0%, ${dark} 100%)">
+        <span class="hero-c1"></span><span class="hero-c2"></span>
+        <span class="hero-ray" style="background:${shade(accent, 0.12)}"></span>
+        <div class="hero-logo">${logoEl}</div>
+        <div class="hero-text">
+          <span class="hero-eyebrow" style="color:${accent}">★ ONHAND STOCK ★</span>
+          <h1 class="hero-title">${title}</h1>
+        </div>
+        <div class="hero-cut"></div>
       </div>
       <div class="sheet-body">${sections}</div>
-      <div class="sheet-footer" style="background:${accent}">${footerText ? `<span>${footerText}</span>` : '<span class="sf-dots">●&nbsp;&nbsp;●&nbsp;&nbsp;●</span>'}</div>
+      <div class="sheet-footer" style="background:linear-gradient(90deg, ${dark}, ${accent})"><span>${footerText}</span></div>
     </div>`;
   }
 
