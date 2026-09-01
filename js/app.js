@@ -272,10 +272,9 @@
           <div class="oc-meta">${items.length} item${items.length === 1 ? '' : 's'} · ${date}</div>
         </div>
         <div class="oc-actions">
-          <button class="icon-btn" data-act="preview" title="Preview & export">👁</button>
+          <button class="oc-pdf" data-act="preview" title="Preview & export PDF">PDF</button>
           <button class="icon-btn" data-act="dup" title="Duplicate">⧉</button>
           <button class="icon-btn" data-act="edit" title="Edit">✎</button>
-          <button class="icon-btn" data-act="del" title="Delete">🗑</button>
         </div>
       </div>`;
     }).join('');
