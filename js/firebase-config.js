@@ -11,12 +11,12 @@
    falls back to on-device storage (IndexedDB) so it keeps working.
    ============================================================ */
 window.FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyDGtNKfV2HGKqKX5ymdOu6WfmsnVP_sBAY",
+  authDomain: "bkm-offers.firebaseapp.com",
+  projectId: "bkm-offers",
+  storageBucket: "bkm-offers.firebasestorage.app",
+  messagingSenderId: "448979566657",
+  appId: "1:448979566657:web:2f4e70d35ac5413ae346c0",
 };
 
 // Configured only when projectId has been replaced with a real value.

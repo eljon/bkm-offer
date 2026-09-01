@@ -90,8 +90,9 @@ textarea{resize:vertical}
 .oc-thumbs img{width:34px;height:34px;border-radius:8px;object-fit:cover;border:2px solid var(--surface);margin-left:-10px;background:var(--surface-2)}
 .oc-thumbs img:first-child{margin-left:0}
 .oc-noimg{width:34px;height:34px;border-radius:8px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:16px}
-.oc-actions{display:flex;gap:6px}
-.oc-actions .icon-btn{width:36px;height:36px;font-size:16px;border:1px solid var(--line);border-radius:10px}
+.oc-actions{display:flex;gap:4px;flex-shrink:0}
+.oc-actions .icon-btn{width:32px;height:32px;font-size:15px;border:1px solid var(--line);border-radius:9px}
+.offer-card .oc-thumbs{flex-shrink:0}
 
 /* Products grid */
 .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}

@@ -23,8 +23,9 @@
 
   // ---------- Money helpers ----------
   const cur = () => state.settings.currency || '$';
-  // Logo shown on offers: uploaded (stored) logo wins, else a committed assets/logo.png
-  const currentLogo = () => state.settings.logo || state.fileLogo || null;
+  // Logo shown on offers: uploaded logo wins, else committed assets/logo.png,
+  // else the logo embedded in js/logo.js (always available).
+  const currentLogo = () => state.settings.logo || state.fileLogo || window.DEFAULT_LOGO || null;
   function fmt(n) {
     if (n == null || isNaN(n)) return '';
     const v = Math.round(n * 100) / 100;
@@ -271,6 +272,7 @@
           <div class="oc-meta">${items.length} item${items.length === 1 ? '' : 's'} · ${date}</div>
         </div>
         <div class="oc-actions">
+          <button class="icon-btn" data-act="preview" title="Preview & export">👁</button>
           <button class="icon-btn" data-act="dup" title="Duplicate">⧉</button>
           <button class="icon-btn" data-act="edit" title="Edit">✎</button>
           <button class="icon-btn" data-act="del" title="Delete">🗑</button>
@@ -281,10 +283,11 @@
       const id = el.dataset.id;
       el.addEventListener('click', (e) => {
         const act = e.target.closest('[data-act]')?.dataset.act;
-        if (act === 'dup') duplicateOffer(id);
+        if (act === 'preview') previewOffer(id);
+        else if (act === 'dup') duplicateOffer(id);
         else if (act === 'edit') editOffer(id);
         else if (act === 'del') deleteOffer(id);
-        else editOffer(id);
+        else previewOffer(id);
       });
     });
   }
@@ -595,13 +598,10 @@
     </div>`;
   }
 
-  async function openPreview() {
-    syncOfferFromForm();
-    if (!state.offer.items.length) { toast('Add at least one item first', true); return; }
-    await saveOffer(); // persist as we preview
+  // Render the current state.offer into the preview modal and open it
+  function showPreview() {
     const host = $('#sheetHost');
     host.innerHTML = buildSheet(state.offer);
-    // Scale sheet to fit modal width
     requestAnimationFrame(() => {
       const sheet = host.querySelector('.sheet');
       const avail = host.parentElement.clientWidth - 32;
@@ -610,7 +610,28 @@
       host.style.height = (sheet.offsetHeight * scale) + 'px';
     });
     openModal('previewModal');
+  }
+
+  // From the builder: sync form, save, then preview
+  async function openPreview() {
+    syncOfferFromForm();
+    if (!state.offer.items.length) { toast('Add at least one item first', true); return; }
+    await saveOffer(); // persist as we preview
+    showPreview();
     renderOffers();
+  }
+
+  // From the Offers list: preview a saved offer without entering the builder
+  function previewOffer(id) {
+    const o = state.offers.find(x => x.id === id);
+    if (!o) return;
+    if (!(o.items || []).length) { toast('This offer has no items', true); return; }
+    state.offer = {
+      ...o,
+      items: (o.items || []).map(i => ({ ...i, _iid: i._iid || uid() })),
+      _isNew: false,
+    };
+    showPreview();
   }
 
   function offscreenSheet() {
@@ -892,7 +913,13 @@
   // =========================================================
   async function init() {
     bind();
-    await loadAll();
+    try {
+      await loadAll();
+    } catch (e) {
+      // e.g. Firestore not created yet or rules not published — keep the app usable
+      console.error('Load failed:', e);
+      toast('Could not load saved data — check Firestore setup', true);
+    }
     goto('offers');
   }
 
