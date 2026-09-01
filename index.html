@@ -46,6 +46,10 @@
           <h1>Products</h1>
           <button class="btn primary" id="addProductBtn">+ Add Product</button>
         </div>
+        <div class="search-wrap">
+          <span class="search-ico">🔎</span>
+          <input type="search" id="productSearch" class="search-input" placeholder="Search products…" autocomplete="off" />
+        </div>
         <div class="products-toolbar hidden" id="productsToolbar">
           <span id="selCount">0 selected</span>
           <div class="spacer"></div>
@@ -68,8 +72,12 @@
         </div>
 
         <div class="card pad">
+          <label class="field">
+            <span>Offer Title <em>· for your list &amp; PDF filename</em></span>
+            <input type="text" id="offerName" placeholder="e.g. Sept New Arrivals" />
+          </label>
           <div class="field" style="margin-bottom:0">
-            <span>Offer title</span>
+            <span>Offer heading <em>· shown on the offer</em></span>
             <div class="title-row">
               <input type="text" id="offerTitle" placeholder="New Arrivals Limited Stock Only" />
               <input type="color" id="offerAccent" value="#e11d48" class="color-input" title="Accent color" aria-label="Accent color" />
@@ -204,6 +212,13 @@
             </div>
           </div>
           <div class="hint-text">Shown at the top of every offer. Stored in your database.</div>
+        </div>
+        <div class="field">
+          <span>Theme</span>
+          <div class="seg" id="themeSeg">
+            <button type="button" class="seg-btn" data-theme-val="dark">🌙 Dark</button>
+            <button type="button" class="seg-btn" data-theme-val="light">☀️ Light</button>
+          </div>
         </div>
         <label class="field">
           <span>Currency symbol</span>

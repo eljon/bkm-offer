@@ -2,12 +2,16 @@
 (() => {
   'use strict';
 
+  // Apply saved theme ASAP (before render) to avoid a flash of the wrong theme
+  try { document.documentElement.setAttribute('data-theme', localStorage.getItem('om_theme') === 'light' ? 'light' : 'dark'); } catch (e) {}
+
   // ---------- State ----------
   const state = {
     products: [],
     offers: [],
-    settings: { currency: '$', logo: null },
+    settings: { currency: '$', logo: null, theme: 'dark' },
     selectedProductIds: new Set(),   // products view multi-select
+    productQuery: '',                // library search text
     pickerSelected: new Set(),       // picker modal selection
     editingProductId: null,          // product modal target
     currentImage: null,              // data URL in product modal
@@ -102,14 +106,22 @@
   function renderProducts() {
     const grid = $('#productsGrid');
     const empty = $('#productsEmpty');
-    const list = [...state.products].sort((a, b) => b.createdAt - a.createdAt);
-    if (!list.length) {
+    const q = (state.productQuery || '').trim().toLowerCase();
+    let list = [...state.products].sort((a, b) => b.createdAt - a.createdAt);
+    if (q) list = list.filter(p =>
+      ((p.name || '') + ' ' + (p.description || '')).toLowerCase().includes(q));
+    if (!state.products.length) {
       grid.innerHTML = '';
       empty.classList.remove('hidden');
       $('#productsToolbar').classList.add('hidden');
       return;
     }
     empty.classList.add('hidden');
+    if (!list.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1;padding:40px 10px"><p>No products match “${esc(q)}”.</p></div>`;
+      updateProductsToolbar();
+      return;
+    }
     grid.innerHTML = list.map(p => productCardHTML(p, state.selectedProductIds.has(p.id), true)).join('');
     $$('.pcard', grid).forEach(el => {
       el.addEventListener('click', (e) => {
@@ -134,11 +146,13 @@
       priceLine = `<span class="pp"><b>${fmt(pr.price)}</b> ${badgeHTML(p, 'pless', 'pnet')}</span>`;
     }
     const editBtn = showEdit ? `<button class="pedit" data-act="edit" aria-label="Edit">✎</button>` : '';
+    const desc = p.description ? `<p class="pd">${esc(p.description)}</p>` : '';
     return `<div class="pcard ${selected ? 'selected' : ''}" data-id="${p.id}">
       <div class="check">✓</div>${editBtn}
       ${img}
       <div class="pbody">
         <p class="pn">${esc(p.name) || 'Untitled'}</p>
+        ${desc}
         ${priceLine}
       </div>
     </div>`;
@@ -266,10 +280,10 @@
         : '<div class="oc-noimg">🧾</div>';
       const date = new Date(o.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       return `<div class="offer-card" data-id="${o.id}">
-        <div class="oc-top" data-act="preview">
+        <div class="oc-top" data-act="edit">
           <div class="oc-thumbs">${thumbs}</div>
           <div class="oc-main">
-            <h3>${esc(o.title) || 'Untitled offer'}</h3>
+            <h3>${esc(o.name) || esc(o.title) || 'Untitled offer'}</h3>
             <div class="oc-meta">${items.length} item${items.length === 1 ? '' : 's'} · ${date}</div>
           </div>
         </div>
@@ -286,9 +300,8 @@
         const act = e.target.closest('[data-act]')?.dataset.act;
         if (act === 'preview') previewOffer(id);
         else if (act === 'dup') duplicateOffer(id);
-        else if (act === 'edit') editOffer(id);
         else if (act === 'del') deleteOffer(id);
-        else previewOffer(id);
+        else editOffer(id);
       });
     });
   }
@@ -306,7 +319,8 @@
     if (!o) return;
     state.offer = {
       id: uid(),
-      title: (o.title || 'Offer') + ' (copy)',
+      name: (o.name || o.title || 'Offer') + ' (copy)',
+      title: o.title || '',
       footer: o.footer, accent: o.accent,
       items: (o.items || []).map(i => ({ ...i, _iid: uid() })),
       createdAt: Date.now(), updatedAt: Date.now(),
@@ -335,6 +349,7 @@
   function newOffer() {
     state.offer = {
       id: uid(),
+      name: '',
       title: DEFAULT_TITLE,
       footer: '',
       accent: '#e11d48',
@@ -349,6 +364,7 @@
   function loadOfferIntoBuilder() {
     const o = state.offer;
     $('#buildTitle').textContent = o._isNew ? 'New Offer' : 'Edit Offer';
+    $('#offerName').value = o.name || '';
     $('#offerTitle').value = o.title || '';
     $('#offerAccent').value = o.accent || '#e11d48';
     renderOfferItems();
@@ -476,6 +492,7 @@
 
   function syncOfferFromForm() {
     if (!state.offer) return;
+    state.offer.name = $('#offerName').value.trim();
     state.offer.title = $('#offerTitle').value.trim();
     state.offer.accent = $('#offerAccent').value;
   }
@@ -492,8 +509,8 @@
       discount: discount == null ? '' : discount, image: image || null,
     }));
     const clean = {
-      id: state.offer.id, title: state.offer.title || '', footer: state.offer.footer || '',
-      accent: state.offer.accent || '#e11d48', items: memItems,
+      id: state.offer.id, name: state.offer.name || '', title: state.offer.title || '',
+      footer: state.offer.footer || '', accent: state.offer.accent || '#e11d48', items: memItems,
       createdAt: state.offer.createdAt || Date.now(), updatedAt: state.offer.updatedAt || Date.now(),
     };
     if (existing) Object.assign(existing, clean); else state.offers.push(clean);
@@ -675,7 +692,7 @@
   }
 
   function safeName() {
-    return (state.offer.title || 'offer').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'offer';
+    return (state.offer.name || state.offer.title || 'offer').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'offer';
   }
 
   async function exportPNG() {
@@ -782,7 +799,7 @@
     await persistSettings();
   }
   async function persistSettings() {
-    await DB.put('settings', { key: 'app', currency: state.settings.currency, logo: state.settings.logo || null });
+    await DB.put('settings', { key: 'app', currency: state.settings.currency, logo: state.settings.logo || null, theme: state.settings.theme || 'dark' });
   }
   async function setLogo(file) {
     try {
@@ -859,17 +876,35 @@
     // For resolving/reference of images stored once on products
     const prodById = new Map(state.products.map(p => [p.id, p]));
     const prodByImg = new Map(state.products.filter(p => p.image).map(p => [p.image, p.id]));
-    state.offers.forEach(o => (o.items || []).forEach(it => {
-      if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
-      migratePricing(it);
-      // Resolve image stored on the product; backfill pid for legacy inline-image
-      // items (match by image) so a re-save shrinks the offer document.
-      if (it.pid && !it.image && prodById.has(it.pid)) it.image = prodById.get(it.pid).image;
-      if (!it.pid && it.image && prodByImg.has(it.image)) it.pid = prodByImg.get(it.image);
-    }));
+    state.offers.forEach(o => {
+      // Legacy offers had no separate name — use the heading as the list/file name
+      if (o.name === undefined || o.name === null || o.name === '') o.name = o.title || '';
+      (o.items || []).forEach(it => {
+        if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
+        migratePricing(it);
+        // Resolve image stored on the product; backfill pid for legacy inline-image
+        // items (match by image) so a re-save shrinks the offer document.
+        if (it.pid && !it.image && prodById.has(it.pid)) it.image = prodById.get(it.pid).image;
+        if (!it.pid && it.image && prodByImg.has(it.image)) it.pid = prodByImg.get(it.image);
+      });
+    });
     const s = await DB.get('settings', 'app');
-    if (s) state.settings = { currency: s.currency || '$', logo: s.logo || null };
+    if (s) state.settings = { currency: s.currency || '$', logo: s.logo || null, theme: s.theme || 'dark' };
+    applyTheme(state.settings.theme);
     if (!state.settings.logo) await loadFileLogo();
+  }
+
+  // ---------- Theme ----------
+  function applyTheme(theme) {
+    const t = theme === 'light' ? 'light' : 'dark';
+    state.settings.theme = t;
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('om_theme', t); } catch (e) {}
+    $$('#themeSeg .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.themeVal === t));
+  }
+  async function setTheme(theme) {
+    applyTheme(theme);
+    await persistSettings();
   }
 
   // Optional: use a committed assets/logo.png as the logo when none is stored
@@ -898,6 +933,7 @@
     $('#addProductBtn').addEventListener('click', () => openProductModal(null));
     $('#addProductBtn2').addEventListener('click', () => openProductModal(null));
     $('#clearSelBtn').addEventListener('click', () => { state.selectedProductIds.clear(); renderProducts(); });
+    $('#productSearch').addEventListener('input', (e) => { state.productQuery = e.target.value; renderProducts(); });
     $('#offerFromSelBtn').addEventListener('click', offerFromSelection);
 
     // Product modal
@@ -922,7 +958,7 @@
     $('#addItemInlineBtn').addEventListener('click', addInlineItem);
     $('#pickerAddBtn').addEventListener('click', addPickedToOffer);
     $('#previewBtn').addEventListener('click', openPreview);
-    ['#offerTitle', '#offerAccent'].forEach(s =>
+    ['#offerName', '#offerTitle', '#offerAccent'].forEach(s =>
       $(s).addEventListener('input', syncOfferFromForm));
 
     // Export
@@ -932,6 +968,7 @@
     // Settings
     $('#settingsBtn').addEventListener('click', openSettings);
     $('#currencyInput').addEventListener('input', saveSettings);
+    $$('#themeSeg .seg-btn').forEach(b => b.addEventListener('click', () => setTheme(b.dataset.themeVal)));
     $('#logoInput').addEventListener('change', (e) => { if (e.target.files[0]) setLogo(e.target.files[0]); });
     $('#removeLogoBtn').addEventListener('click', removeLogo);
     $('#exportDataBtn').addEventListener('click', exportData);
