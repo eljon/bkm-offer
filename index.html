@@ -73,13 +73,11 @@
 
         <div class="card pad">
           <label class="field">
-            <span>Offer Title <em>· for your list &amp; PDF filename</em></span>
-            <input type="text" id="offerName" placeholder="e.g. Sept New Arrivals" />
+            <input type="text" id="offerName" placeholder="Offer title — for your list &amp; PDF filename" />
           </label>
           <div class="field" style="margin-bottom:0">
-            <span>Offer heading <em>· shown on the offer</em></span>
             <div class="title-row">
-              <input type="text" id="offerTitle" placeholder="New Arrivals Limited Stock Only" />
+              <input type="text" id="offerTitle" placeholder="Offer heading — shown on the offer" />
               <input type="color" id="offerAccent" value="#e11d48" class="color-input" title="Accent color" aria-label="Accent color" />
             </div>
           </div>
@@ -124,25 +122,20 @@
           </div>
         </label>
         <label class="field hidden" id="productField">
-          <span>Product</span>
-          <input type="text" id="pProduct" placeholder="e.g. Wheel Cylinder Assy — ISUZU C240" />
+          <input type="text" id="pProduct" placeholder="Product" />
         </label>
         <label class="field" id="nameField">
-          <span id="pNameLabel">Product name</span>
-          <input type="text" id="pName" placeholder="e.g. Front Brake Pads" />
+          <input type="text" id="pName" placeholder="Product name" />
         </label>
         <label class="field">
-          <span>Description</span>
-          <textarea id="pDesc" rows="2" placeholder="e.g. RR-LH-Upper · 4BC2 NM · 1&quot; · #9-47601-633-1"></textarea>
+          <textarea id="pDesc" rows="2" placeholder="Description"></textarea>
         </label>
         <div class="row">
           <label class="field">
-            <span>Price</span>
-            <input type="number" id="pPrice" inputmode="decimal" placeholder="0.00" step="0.01" />
+            <input type="number" id="pPrice" inputmode="decimal" placeholder="Price" step="0.01" />
           </label>
           <label class="field">
-            <span>Discount %</span>
-            <input type="text" id="pDiscount" inputmode="decimal" placeholder="30, or blank / net" />
+            <input type="text" id="pDiscount" inputmode="decimal" placeholder="Discount % — blank = NET" />
           </label>
         </div>
         <div class="price-hint" id="priceHint"></div>
@@ -221,8 +214,7 @@
           </div>
         </div>
         <label class="field">
-          <span>Currency symbol</span>
-          <input type="text" id="currencyInput" maxlength="4" placeholder="$" />
+          <input type="text" id="currencyInput" maxlength="4" placeholder="Currency symbol" />
         </label>
         <div class="field">
           <span>Database</span>
