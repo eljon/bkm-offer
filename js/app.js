@@ -573,10 +573,10 @@
       </div>`;
     };
 
-    // One section per product, title shown once
+    // One section per product, title shown once (with an accent bullet)
     const sections = groupItems(items).map(([title, gitems]) => {
       const heading = title
-        ? `<div class="sgroup-title" style="border-color:${accent}">${esc(title)}</div>` : '';
+        ? `<div class="sgroup-title" style="border-color:${accent}"><span class="sgt-dot" style="background:${accent}"></span>${esc(title)}</div>` : '';
       return `<section class="sgroup">${heading}<div class="sheet-grid">${gitems.map(variantCard).join('')}</div></section>`;
     }).join('');
 
@@ -584,15 +584,16 @@
     const logoEl = logo
       ? `<img class="sheet-logo" src="${logo}" alt="logo">`
       : `<div class="sheet-wordmark">BJ Auto Parts Supply</div>`;
-    const footer = offer.footer
-      ? `<div class="sheet-footer"><span>${esc(offer.footer)}</span></div>` : '';
+    const footerText = esc(offer.footer) || '';
     return `<div class="sheet" style="--accent:${accent}">
+      <div class="deco-spine" style="background:${accent}"></div>
+      <div class="deco-blob" style="background:${accent}"></div>
       <div class="sheet-top" style="border-color:${accent}">
         ${logoEl}
         <h1 class="sheet-title">${esc(offer.title) || DEFAULT_TITLE}</h1>
       </div>
       <div class="sheet-body">${sections}</div>
-      ${footer}
+      <div class="sheet-footer" style="background:${accent}">${footerText ? `<span>${footerText}</span>` : '<span class="sf-dots">●&nbsp;&nbsp;●&nbsp;&nbsp;●</span>'}</div>
     </div>`;
   }
 

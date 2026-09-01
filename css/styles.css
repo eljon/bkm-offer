@@ -235,16 +235,23 @@ textarea{resize:vertical}
 /* ============================================================
    OFFER SHEET (the exported layout) — light, print-friendly
    ============================================================ */
-.sheet{width:794px;background:#f9f9f9;color:#0f172a;font-family:'Inter',sans-serif;padding:0}
-.sheet-top{background:#fff;padding:26px 40px;display:flex;align-items:center;gap:26px;border-bottom:5px solid #e11d48}
+.sheet{width:794px;background:#f9f9f9;color:#0f172a;font-family:'Inter',sans-serif;padding:0;
+  position:relative;overflow:hidden;border:1px solid #e4e7ef}
+/* brochure decor */
+.deco-spine{position:absolute;left:0;top:0;bottom:0;width:14px;z-index:3;background:#e11d48}
+.deco-blob{position:absolute;right:-110px;bottom:70px;width:300px;height:300px;border-radius:50%;
+  background:#e11d48;opacity:.06;z-index:0}
+.sheet-top,.sheet-body,.sheet-footer,.sgroup{position:relative;z-index:1}
+.sheet-top{background:#fff;padding:26px 44px 26px 52px;display:flex;align-items:center;gap:26px;border-bottom:5px solid #e11d48}
 .sheet-logo{flex-shrink:0;max-width:300px;max-height:96px;width:auto;height:auto;object-fit:contain}
 .sheet-wordmark{flex-shrink:0;font-size:26px;font-weight:800;letter-spacing:.5px;color:#1560c4;line-height:1.05}
 .sheet-title{flex:1;min-width:0;font-size:30px;font-weight:800;line-height:1.15;margin:0;color:#0f172a;text-align:left}
-.sheet-body{padding:26px 40px 10px}
+.sheet-body{padding:28px 44px 14px 52px}
 .sgroup{margin-bottom:22px}
 .sgroup:last-child{margin-bottom:6px}
-.sgroup-title{font-size:21px;font-weight:800;color:#0f172a;line-height:1.2;
+.sgroup-title{display:flex;align-items:center;gap:10px;font-size:21px;font-weight:800;color:#0f172a;line-height:1.2;
   padding-bottom:9px;margin-bottom:15px;border-bottom:2px solid #e11d48}
+.sgt-dot{flex-shrink:0;width:14px;height:14px;border-radius:4px;transform:rotate(45deg);background:#e11d48}
 .sheet-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:16px}
 .scard{position:relative;flex:0 0 calc((100% - 32px)/3);min-width:0;
   border:2px solid #cbd2e1;border-radius:14px;overflow:hidden;background:#fff;
@@ -267,7 +274,9 @@ textarea{resize:vertical}
   letter-spacing:.6px;padding:4px 9px;border-radius:7px;font-variant:all-small-caps;line-height:1}
 .scard .s-less{background:var(--accent,#e11d48)}
 .scard .s-net{background:#475569}
-.sheet-footer{padding:16px 40px 26px;color:#64708f;font-size:13px;text-align:center;font-weight:600}
+.sheet-footer{margin-top:14px;padding:16px 44px 16px 52px;background:#e11d48;color:#fff;font-size:13px;
+  text-align:center;font-weight:700;letter-spacing:.3px;min-height:26px;display:flex;align-items:center;justify-content:center}
+.sheet-footer .sf-dots{opacity:.6;letter-spacing:2px;font-size:10px}
 
 /* Print / PDF: keep cards and sections from splitting across pages */
 @media print{
