@@ -236,11 +236,10 @@ textarea{resize:vertical}
    OFFER SHEET (the exported layout) — light, print-friendly
    ============================================================ */
 .sheet{width:794px;background:#f9f9f9;color:#0f172a;font-family:'Inter',sans-serif;padding:0}
-.sheet-top{background:#fff;padding:30px 40px 24px;text-align:center}
-.sheet-logo{display:block;max-width:70%;max-height:120px;width:auto;height:auto;margin:0 auto 14px;object-fit:contain}
-.sheet-wordmark{font-size:34px;font-weight:800;letter-spacing:.5px;color:#1560c4;margin-bottom:14px}
-.sheet-title{font-size:30px;font-weight:800;line-height:1.15;margin:0 auto;max-width:90%;color:#0f172a}
-.sheet-rule{height:4px;width:90px;border-radius:3px;margin:16px auto 0;background:#e11d48}
+.sheet-top{background:#fff;padding:26px 40px;display:flex;align-items:center;gap:26px;border-bottom:5px solid #e11d48}
+.sheet-logo{flex-shrink:0;max-width:300px;max-height:96px;width:auto;height:auto;object-fit:contain}
+.sheet-wordmark{flex-shrink:0;font-size:26px;font-weight:800;letter-spacing:.5px;color:#1560c4;line-height:1.05}
+.sheet-title{flex:1;min-width:0;font-size:30px;font-weight:800;line-height:1.15;margin:0;color:#0f172a;text-align:left}
 .sheet-body{padding:26px 40px 10px}
 .sgroup{margin-bottom:22px}
 .sgroup:last-child{margin-bottom:6px}

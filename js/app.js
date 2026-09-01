@@ -587,10 +587,9 @@
     const footer = offer.footer
       ? `<div class="sheet-footer"><span>${esc(offer.footer)}</span></div>` : '';
     return `<div class="sheet" style="--accent:${accent}">
-      <div class="sheet-top">
+      <div class="sheet-top" style="border-color:${accent}">
         ${logoEl}
         <h1 class="sheet-title">${esc(offer.title) || DEFAULT_TITLE}</h1>
-        <div class="sheet-rule" style="background:${accent}"></div>
       </div>
       <div class="sheet-body">${sections}</div>
       ${footer}
