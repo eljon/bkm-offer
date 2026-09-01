@@ -30,27 +30,22 @@
     const v = Math.round(n * 100) / 100;
     return cur() + v.toLocaleString(undefined, { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
   }
-  // Returns {price, net, discountPct, hasDiscount}
+  // Resolve the listed price. Returns { price: Number|null }
   function computePricing(p) {
     const price = parseFloat(p.price);
-    if (isNaN(price)) return { price: null, net: null, discountPct: 0, hasDiscount: false };
-    if (p.mode === 'percent') {
-      const d = parseFloat(p.discount) || 0;
-      const net = price * (1 - d / 100);
-      return { price, net, discountPct: Math.round(d), hasDiscount: d > 0 };
-    }
-    if (p.mode === 'net') {
-      const net = parseFloat(p.discount);
-      if (isNaN(net) || net >= price) return { price, net: isNaN(net) ? price : net, discountPct: 0, hasDiscount: !isNaN(net) && net < price };
-      const pct = Math.round((1 - net / price) * 100);
-      return { price, net, discountPct: pct, hasDiscount: true };
-    }
-    return { price, net: price, discountPct: 0, hasDiscount: false };
+    return { price: isNaN(price) ? null : price };
   }
-  // "LESS x%" percent, or null when not a percent-discount item
+  // Discount % → rounded number, or null (blank / "net" / non-numeric = NET price)
   function lessPct(p) {
     const d = parseFloat(p.discount);
-    return (p.mode === 'percent' && !isNaN(d) && d > 0) ? Math.round(d) : null;
+    return (!isNaN(d) && d > 0) ? Math.round(d) : null;
+  }
+  // Badge markup for a given context's class names
+  function badgeHTML(p, lessCls, netCls, accent) {
+    const less = lessPct(p);
+    return less != null
+      ? `<span class="${lessCls}"${accent ? ` style="background:${accent}"` : ''}>LESS ${less}%</span>`
+      : `<span class="${netCls}">NET</span>`;
   }
 
   // ---------- Toast ----------
@@ -133,12 +128,9 @@
     const img = p.image
       ? `<img class="pimg" src="${p.image}" alt="">`
       : `<div class="pimg ph">📦</div>`;
-    const less = lessPct(p);
     let priceLine = '';
     if (pr.price != null) {
-      if (less != null) priceLine = `<span class="pp"><b>${fmt(pr.price)}</b> <span class="pless">LESS ${less}%</span></span>`;
-      else if (p.mode === 'net' && pr.hasDiscount) priceLine = `<span class="pp"><s>${fmt(pr.price)}</s> <b>${fmt(pr.net)}</b></span>`;
-      else priceLine = `<span class="pp"><b>${fmt(pr.price)}</b></span>`;
+      priceLine = `<span class="pp"><b>${fmt(pr.price)}</b> ${badgeHTML(p, 'pless', 'pnet')}</span>`;
     }
     const editBtn = showEdit ? `<button class="pedit" data-act="edit" aria-label="Edit">✎</button>` : '';
     return `<div class="pcard ${selected ? 'selected' : ''}" data-id="${p.id}">
@@ -165,11 +157,12 @@
     $('#selCount').textContent = n + ' selected';
   }
 
-  // Configure modal for library-product vs offer-item (variant) editing
+  // Configure modal for library-product vs offer-item (variant) editing.
+  // Variants have no name field — the product title is the group heading and
+  // the description carries the variant detail.
   function setModalMode(isItem) {
     $('#productField').classList.toggle('hidden', !isItem);
-    $('#pNameLabel').textContent = isItem ? 'Variant name (optional)' : 'Product name';
-    $('#pName').placeholder = isItem ? 'e.g. RR-LH-Upper (leave blank if none)' : 'e.g. Front Brake Pads';
+    $('#nameField').classList.toggle('hidden', isItem);
   }
 
   // ----- Product modal -----
@@ -182,10 +175,8 @@
     $('#pName').value = product ? product.name || '' : '';
     $('#pDesc').value = product ? product.description || '' : '';
     $('#pPrice').value = product ? (product.price ?? '') : '';
-    $('#pMode').value = product ? (product.mode || 'percent') : 'percent';
     $('#pDiscount').value = product ? (product.discount ?? '') : '';
     updateImagePreview();
-    updateDiscountField();
     updatePriceHint();
     $('#deleteProductBtn').classList.toggle('hidden', !product);
     openModal('productModal');
@@ -204,23 +195,12 @@
     }
   }
 
-  function updateDiscountField() {
-    const mode = $('#pMode').value;
-    const field = $('#discountField');
-    const label = $('#discountLabel');
-    if (mode === 'none') { field.classList.add('hidden'); return; }
-    field.classList.remove('hidden');
-    label.textContent = mode === 'percent' ? 'Discount %' : 'Net price';
-    $('#pDiscount').placeholder = mode === 'percent' ? '0' : '0.00';
-  }
-
   function readProductForm() {
     return {
       product: $('#pProduct').value.trim(),
       name: $('#pName').value.trim(),
       description: $('#pDesc').value.trim(),
       price: $('#pPrice').value,
-      mode: $('#pMode').value,
       discount: $('#pDiscount').value,
       image: state.currentImage,
     };
@@ -232,13 +212,9 @@
     const hint = $('#priceHint');
     if (pr.price == null) { hint.textContent = ''; return; }
     const less = lessPct(form);
-    if (less != null) {
-      hint.innerHTML = `Shows <b>${fmt(pr.price)}</b> · <b>LESS ${less}%</b> badge`;
-    } else if (form.mode === 'net' && pr.hasDiscount) {
-      hint.innerHTML = `Was ${fmt(pr.price)} → net <b>${fmt(pr.net)}</b>`;
-    } else {
-      hint.innerHTML = `Price <b>${fmt(pr.price)}</b>`;
-    }
+    hint.innerHTML = less != null
+      ? `Shows <b>${fmt(pr.price)}</b> · <b>LESS ${less}%</b> badge`
+      : `Shows <b>${fmt(pr.price)}</b> · <b>NET</b> badge`;
   }
 
   async function saveProduct() {
@@ -400,14 +376,9 @@
       const rows = gitems.map(it => {
         const pr = computePricing(it);
         const img = it.image ? `<img src="${it.image}" alt="">` : `<div class="oi-ph">📦</div>`;
-        const less = lessPct(it);
-        let price = '';
-        if (pr.price != null) {
-          if (less != null) price = `<span class="oi-price"><b>${fmt(pr.price)}</b> <span class="oi-less">LESS ${less}%</span></span>`;
-          else if (it.mode === 'net' && pr.hasDiscount) price = `<span class="oi-price"><s>${fmt(pr.price)}</s><b>${fmt(pr.net)}</b></span>`;
-          else price = `<span class="oi-price"><b>${fmt(pr.price)}</b></span>`;
-        }
-        const label = esc(it.name) || esc(it.description) || 'Variant';
+        const price = pr.price != null
+          ? `<span class="oi-price"><b>${fmt(pr.price)}</b> ${badgeHTML(it, 'oi-less', 'oi-net')}</span>` : '';
+        const label = esc(it.description) || 'Variant';
         return `<div class="oitem" data-iid="${it._iid}">
           ${img}
           <div class="oi-main"><h4>${label}</h4>${price}</div>
@@ -444,12 +415,11 @@
     setModalMode(true);
     $('#productModalTitle').textContent = titleText;
     $('#pProduct').value = values.product || '';
-    $('#pName').value = values.name || '';
+    $('#pName').value = '';
     $('#pDesc').value = values.description || '';
     $('#pPrice').value = values.price ?? '';
-    $('#pMode').value = values.mode || 'percent';
     $('#pDiscount').value = values.discount ?? '';
-    updateImagePreview(); updateDiscountField(); updatePriceHint();
+    updateImagePreview(); updatePriceHint();
     $('#deleteProductBtn').classList.add('hidden');
     openModal('productModal');
   }
@@ -458,7 +428,7 @@
     const it = state.offer.items.find(i => i._iid === iid);
     if (!it) return;
     editingItemIid = iid;
-    openItemModal('Edit Variant', { product: groupKey(it), name: it.name, description: it.description, price: it.price, mode: it.mode, discount: it.discount, image: it.image });
+    openItemModal('Edit Variant', { product: groupKey(it), description: it.description, price: it.price, discount: it.discount, image: it.image });
   }
 
   // "+ Add Product" — new product group, product title editable
@@ -486,9 +456,8 @@
         state.offer.items.push({ _iid: uid(), ...data });
         // Also save the variant to the library for reuse (grouped by product title)
         const prod = {
-          id: uid(), name: data.product,
-          description: [data.name, data.description].filter(Boolean).join(' · '),
-          price: data.price, mode: data.mode, discount: data.discount, image: data.image,
+          id: uid(), name: data.product, description: data.description,
+          price: data.price, discount: data.discount, image: data.image,
           createdAt: Date.now(), updatedAt: Date.now(),
         };
         state.products.push(prod);
@@ -517,8 +486,8 @@
       title: state.offer.title,
       footer: state.offer.footer,
       accent: state.offer.accent,
-      items: state.offer.items.map(({ _iid, product, name, description, price, mode, discount, image }) =>
-        ({ _iid, product: product || '', name, description, price, mode, discount, image })),
+      items: state.offer.items.map(({ _iid, product, description, price, discount, image }) =>
+        ({ _iid, product: product || '', name: '', description, price, discount, image })),
       createdAt: state.offer.createdAt,
       updatedAt: state.offer.updatedAt,
     };
@@ -555,7 +524,7 @@
   function libToItem(p) {
     return {
       _iid: uid(), product: p.name || '', name: '', description: p.description,
-      price: p.price, mode: p.mode, discount: p.discount, image: p.image,
+      price: p.price, discount: p.discount, image: p.image,
     };
   }
   function addPickedToOffer() {
@@ -589,23 +558,14 @@
       const img = it.image
         ? `<div class="s-imgwrap"><img src="${it.image}" alt=""></div>`
         : `<div class="s-imgwrap"><span class="s-noimg">📦</span></div>`;
-      const less = lessPct(it);
-      let priceBlock;
-      if (pr.price == null) priceBlock = '';
-      else if (less != null) {
-        priceBlock = `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span><span class="s-less" style="background:${accent}">LESS ${less}%</span></div>`;
-      } else if (it.mode === 'net' && pr.hasDiscount) {
-        priceBlock = `<div class="s-price"><span class="s-old">${fmt(pr.price)}</span><span class="s-new">${fmt(pr.net)}</span></div>`;
-      } else {
-        priceBlock = `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span></div>`;
-      }
-      // Variant card shows only variant detail — the product title is the section heading
-      const name = it.name ? `<p class="s-name">${esc(it.name)}</p>` : '';
+      const priceBlock = pr.price == null ? ''
+        : `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span>${badgeHTML(it, 's-less', 's-net', accent)}</div>`;
+      // Variant card shows only the variant detail — the product title is the section heading
       const desc = it.description ? `<p class="s-desc">${esc(it.description)}</p>` : '';
       return `<div class="scard">
         ${img}
         <div class="s-body">
-          ${name}${desc}
+          ${desc}
           ${priceBlock}
         </div>
       </div>`;
@@ -686,14 +646,55 @@
     try {
       toast('Rendering PDF…');
       const sheet = wrap.querySelector('.sheet');
-      const canvas = await html2canvas(sheet, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+
+      // Collect clean page-break points (px, relative to the sheet) so a
+      // page never cuts through a card: sheet-top bottom, each card-row
+      // bottom, and each section start.
+      const sheetRect = sheet.getBoundingClientRect();
+      const top = (el) => el.getBoundingClientRect().top - sheetRect.top;
+      const bottom = (el) => el.getBoundingClientRect().bottom - sheetRect.top;
+      const breaks = new Set([0]);
+      const topEl = sheet.querySelector('.sheet-top'); if (topEl) breaks.add(bottom(topEl));
+      sheet.querySelectorAll('.sgroup').forEach(g => breaks.add(top(g)));
+      // group cards into rows by their top offset
+      const rows = new Map();
+      sheet.querySelectorAll('.scard').forEach(c => {
+        const k = Math.round(top(c));
+        rows.set(k, Math.max(rows.get(k) || 0, bottom(c)));
+      });
+      rows.forEach(b => breaks.add(b));
+      const foot = sheet.querySelector('.sheet-footer'); if (foot) breaks.add(bottom(foot));
+
+      const canvas = await html2canvas(sheet, { scale: 2, useCORS: true, backgroundColor: null });
+      const factor = canvas.width / sheetRect.width;         // css px -> canvas px
+      const cuts = [...breaks].map(v => Math.round(v * factor))
+        .filter(v => v >= 0 && v <= canvas.height).sort((a, b) => a - b);
+      cuts.push(canvas.height);
+
       const { jsPDF } = window.jspdf;
-      // Page proportional to content, A4 width
-      const pdfW = 210; // mm
-      const pdfH = canvas.height * pdfW / canvas.width;
-      const pdf = new jsPDF({ orientation: pdfH > pdfW ? 'p' : 'l', unit: 'mm', format: [pdfW, pdfH] });
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+      const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'letter' });
+      const pageWmm = pdf.internal.pageSize.getWidth();       // 215.9
+      const pageHmm = pdf.internal.pageSize.getHeight();      // 279.4
+      const pageHpx = Math.floor(pageHmm * canvas.width / pageWmm);
+
+      // Greedily pack rows into Letter pages, breaking only at clean cuts.
+      let start = 0, first = true;
+      while (start < canvas.height - 1) {
+        const limit = start + pageHpx;
+        let end = cuts.filter(c => c > start + 4 && c <= limit).pop();
+        if (end === undefined) end = Math.min(limit, canvas.height); // block taller than a page → hard cut
+        const sliceH = end - start;
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width; slice.height = sliceH;
+        const ctx = slice.getContext('2d');
+        ctx.fillStyle = '#f9f9f9'; ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, start, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        const imgH = sliceH * pageWmm / canvas.width;
+        if (!first) pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageWmm, imgH);
+        first = false;
+        start = end;
+      }
       pdf.save(safeName() + '.pdf');
       toast('PDF downloaded');
     } catch (e) {
@@ -794,11 +795,19 @@
   //  Load
   // =========================================================
   async function loadAll() {
-    state.products = await DB.all('products') || [];
+    // Legacy pricing modes are gone: 'net'/'none' items become a NET badge
+    // (their `discount` field is set to "net"); 'percent' keeps its number.
+    const migratePricing = (x) => {
+      if (x && (x.mode === 'net' || x.mode === 'none')) x.discount = 'net';
+      if (x) delete x.mode;
+    };
+    state.products = (await DB.all('products') || []);
+    state.products.forEach(migratePricing);
     state.offers = await DB.all('offers') || [];
     // Migrate legacy offer items (no `product`): the old item name becomes the product title
     state.offers.forEach(o => (o.items || []).forEach(it => {
       if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
+      migratePricing(it);
     }));
     const s = await DB.get('settings', 'app');
     if (s) state.settings = { currency: s.currency || '$', logo: s.logo || null };
@@ -840,7 +849,6 @@
       try { state.currentImage = await fileToResizedDataURL(file); updateImagePreview(); }
       catch { toast('Could not load image', true); }
     });
-    $('#pMode').addEventListener('change', () => { updateDiscountField(); updatePriceHint(); });
     ['#pPrice', '#pDiscount'].forEach(s => $(s).addEventListener('input', updatePriceHint));
     $('#saveProductBtn').addEventListener('click', saveProductOrItem);
     $('#deleteProductBtn').addEventListener('click', () => {
