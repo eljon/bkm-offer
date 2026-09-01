@@ -348,7 +348,6 @@
     const o = state.offer;
     $('#buildTitle').textContent = o._isNew ? 'New Offer' : 'Edit Offer';
     $('#offerTitle').value = o.title || '';
-    $('#offerFooter').value = o.footer || '';
     $('#offerAccent').value = o.accent || '#e11d48';
     renderOfferItems();
   }
@@ -475,7 +474,6 @@
   function syncOfferFromForm() {
     if (!state.offer) return;
     state.offer.title = $('#offerTitle').value.trim();
-    state.offer.footer = $('#offerFooter').value.trim();
     state.offer.accent = $('#offerAccent').value;
   }
 
@@ -884,7 +882,7 @@
     $('#addItemInlineBtn').addEventListener('click', addInlineItem);
     $('#pickerAddBtn').addEventListener('click', addPickedToOffer);
     $('#previewBtn').addEventListener('click', openPreview);
-    ['#offerTitle', '#offerFooter', '#offerAccent'].forEach(s =>
+    ['#offerTitle', '#offerAccent'].forEach(s =>
       $(s).addEventListener('input', syncOfferFromForm));
 
     // Export
