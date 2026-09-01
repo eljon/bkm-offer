@@ -161,11 +161,20 @@
     $('#selCount').textContent = n + ' selected';
   }
 
+  // Configure modal for library-product vs offer-item (variant) editing
+  function setModalMode(isItem) {
+    $('#productField').classList.toggle('hidden', !isItem);
+    $('#pNameLabel').textContent = isItem ? 'Variant name (optional)' : 'Product name';
+    $('#pName').placeholder = isItem ? 'e.g. RR-LH-Upper (leave blank if none)' : 'e.g. Front Brake Pads';
+  }
+
   // ----- Product modal -----
   function openProductModal(product) {
+    setModalMode(false);
     state.editingProductId = product ? product.id : null;
     state.currentImage = product ? product.image : null;
     $('#productModalTitle').textContent = product ? 'Edit Product' : 'Add Product';
+    $('#pProduct').value = '';
     $('#pName').value = product ? product.name || '' : '';
     $('#pDesc').value = product ? product.description || '' : '';
     $('#pPrice').value = product ? (product.price ?? '') : '';
@@ -203,6 +212,7 @@
 
   function readProductForm() {
     return {
+      product: $('#pProduct').value.trim(),
       name: $('#pName').value.trim(),
       description: $('#pDesc').value.trim(),
       price: $('#pPrice').value,
@@ -363,31 +373,52 @@
     renderOfferItems();
   }
 
+  // Group key = product title (falls back to legacy name)
+  function groupKey(it) { return (it.product || '').trim() || (it.name || '').trim(); }
+  // Preserve first-appearance order of products
+  function groupItems(items) {
+    const map = new Map();
+    items.forEach(it => {
+      const k = groupKey(it);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(it);
+    });
+    return [...map.entries()];
+  }
+
   function renderOfferItems() {
     const host = $('#offerItems');
     const items = state.offer.items;
     if (!items.length) {
-      host.innerHTML = `<div class="empty" style="padding:24px"><p>No items yet. Add new or pick from library.</p></div>`;
+      host.innerHTML = `<div class="empty" style="padding:24px"><p>No products yet. Add a product or pick from library.</p></div>`;
       return;
     }
-    host.innerHTML = items.map(it => {
-      const pr = computePricing(it);
-      const img = it.image ? `<img src="${it.image}" alt="">` : `<div class="oi-ph">📦</div>`;
-      const less = lessPct(it);
-      let price = '';
-      if (pr.price != null) {
-        if (less != null) price = `<span class="oi-price"><b>${fmt(pr.price)}</b> <span class="oi-less">LESS ${less}%</span></span>`;
-        else if (it.mode === 'net' && pr.hasDiscount) price = `<span class="oi-price"><s>${fmt(pr.price)}</s><b>${fmt(pr.net)}</b></span>`;
-        else price = `<span class="oi-price"><b>${fmt(pr.price)}</b></span>`;
-      }
-      return `<div class="oitem" data-iid="${it._iid}">
-        ${img}
-        <div class="oi-main">
-          <h4>${esc(it.name) || 'Untitled'}</h4>
-          ${price}
+    const groups = groupItems(items);
+    host.innerHTML = groups.map(([title, gitems]) => {
+      const rows = gitems.map(it => {
+        const pr = computePricing(it);
+        const img = it.image ? `<img src="${it.image}" alt="">` : `<div class="oi-ph">📦</div>`;
+        const less = lessPct(it);
+        let price = '';
+        if (pr.price != null) {
+          if (less != null) price = `<span class="oi-price"><b>${fmt(pr.price)}</b> <span class="oi-less">LESS ${less}%</span></span>`;
+          else if (it.mode === 'net' && pr.hasDiscount) price = `<span class="oi-price"><s>${fmt(pr.price)}</s><b>${fmt(pr.net)}</b></span>`;
+          else price = `<span class="oi-price"><b>${fmt(pr.price)}</b></span>`;
+        }
+        const label = esc(it.name) || esc(it.description) || 'Variant';
+        return `<div class="oitem" data-iid="${it._iid}">
+          ${img}
+          <div class="oi-main"><h4>${label}</h4>${price}</div>
+          <button class="icon-btn" data-act="edit">✎</button>
+          <button class="icon-btn" data-act="rm">✕</button>
+        </div>`;
+      }).join('');
+      return `<div class="ogroup">
+        <div class="ogroup-head">
+          <span class="ogroup-title">${esc(title) || 'Untitled product'}</span>
+          <button class="ogroup-add" data-product="${esc(title)}">+ Variant</button>
         </div>
-        <button class="icon-btn" data-act="edit">✎</button>
-        <button class="icon-btn" data-act="rm">✕</button>
+        <div class="ogroup-items">${rows}</div>
       </div>`;
     }).join('');
     $$('.oitem', host).forEach(el => {
@@ -398,52 +429,66 @@
       });
       el.querySelector('[data-act="edit"]').addEventListener('click', () => editOfferItem(iid));
     });
+    $$('.ogroup-add', host).forEach(el =>
+      el.addEventListener('click', () => addVariant(el.dataset.product)));
   }
 
   // Editing an item inside the offer reuses the product modal, but saves to the offer item
   let editingItemIid = null;
-  function editOfferItem(iid) {
-    const it = state.offer.items.find(i => i._iid === iid);
-    if (!it) return;
-    editingItemIid = iid;
+  // Reset the modal into offer-item (variant) mode with the given values
+  function openItemModal(titleText, values) {
     state.editingProductId = '__offerItem__';
-    state.currentImage = it.image || null;
-    $('#productModalTitle').textContent = 'Edit Item';
-    $('#pName').value = it.name || '';
-    $('#pDesc').value = it.description || '';
-    $('#pPrice').value = it.price ?? '';
-    $('#pMode').value = it.mode || 'percent';
-    $('#pDiscount').value = it.discount ?? '';
+    state.currentImage = values.image || null;
+    setModalMode(true);
+    $('#productModalTitle').textContent = titleText;
+    $('#pProduct').value = values.product || '';
+    $('#pName').value = values.name || '';
+    $('#pDesc').value = values.description || '';
+    $('#pPrice').value = values.price ?? '';
+    $('#pMode').value = values.mode || 'percent';
+    $('#pDiscount').value = values.discount ?? '';
     updateImagePreview(); updateDiscountField(); updatePriceHint();
     $('#deleteProductBtn').classList.add('hidden');
     openModal('productModal');
   }
 
+  function editOfferItem(iid) {
+    const it = state.offer.items.find(i => i._iid === iid);
+    if (!it) return;
+    editingItemIid = iid;
+    openItemModal('Edit Variant', { product: groupKey(it), name: it.name, description: it.description, price: it.price, mode: it.mode, discount: it.discount, image: it.image });
+  }
+
+  // "+ Add Product" — new product group, product title editable
   function addInlineItem() {
     editingItemIid = null;
-    state.editingProductId = '__offerItem__';
-    state.currentImage = null;
-    $('#productModalTitle').textContent = 'Add Item';
-    $('#pName').value = ''; $('#pDesc').value = '';
-    $('#pPrice').value = ''; $('#pMode').value = 'percent'; $('#pDiscount').value = '';
-    updateImagePreview(); updateDiscountField(); updatePriceHint();
-    $('#deleteProductBtn').classList.add('hidden');
-    openModal('productModal');
+    openItemModal('Add Product', {});
+  }
+
+  // "+ Variant" — product title prefilled from the group
+  function addVariant(product) {
+    editingItemIid = null;
+    openItemModal('Add Variant', { product });
   }
 
   // Override save when in offer-item mode
   async function saveProductOrItem() {
     if (state.editingProductId === '__offerItem__') {
       const data = readProductForm();
-      if (!data.name) { toast('Please enter a name', true); return; }
+      if (!data.product) { toast('Please enter a product', true); return; }
       if (data.price === '' || isNaN(parseFloat(data.price))) { toast('Please enter a valid price', true); return; }
       if (editingItemIid) {
         const it = state.offer.items.find(i => i._iid === editingItemIid);
         Object.assign(it, data);
       } else {
         state.offer.items.push({ _iid: uid(), ...data });
-        // Also save brand-new inline items to the product library for reuse
-        const prod = { id: uid(), ...data, createdAt: Date.now(), updatedAt: Date.now() };
+        // Also save the variant to the library for reuse (grouped by product title)
+        const prod = {
+          id: uid(), name: data.product,
+          description: [data.name, data.description].filter(Boolean).join(' · '),
+          price: data.price, mode: data.mode, discount: data.discount, image: data.image,
+          createdAt: Date.now(), updatedAt: Date.now(),
+        };
         state.products.push(prod);
         await DB.put('products', prod);
       }
@@ -472,8 +517,8 @@
       store: state.offer.store,
       footer: state.offer.footer,
       accent: state.offer.accent,
-      items: state.offer.items.map(({ _iid, name, description, price, mode, discount, image }) =>
-        ({ _iid, name, description, price, mode, discount, image })),
+      items: state.offer.items.map(({ _iid, product, name, description, price, mode, discount, image }) =>
+        ({ _iid, product: product || '', name, description, price, mode, discount, image })),
       createdAt: state.offer.createdAt,
       updatedAt: state.offer.updatedAt,
     };
@@ -506,14 +551,16 @@
       });
     });
   }
+  // Library product -> offer item: the product's name becomes the group title
+  function libToItem(p) {
+    return {
+      _iid: uid(), product: p.name || '', name: '', description: p.description,
+      price: p.price, mode: p.mode, discount: p.discount, image: p.image,
+    };
+  }
   function addPickedToOffer() {
     const picked = state.products.filter(p => state.pickerSelected.has(p.id));
-    picked.forEach(p => {
-      state.offer.items.push({
-        _iid: uid(), name: p.name, description: p.description,
-        price: p.price, mode: p.mode, discount: p.discount, image: p.image,
-      });
-    });
+    picked.forEach(p => state.offer.items.push(libToItem(p)));
     closeModal('pickerModal');
     renderOfferItems();
     if (picked.length) toast(picked.length + ' item(s) added');
@@ -524,12 +571,7 @@
     const picked = state.products.filter(p => state.selectedProductIds.has(p.id));
     if (!picked.length) return;
     newOffer();
-    picked.forEach(p => {
-      state.offer.items.push({
-        _iid: uid(), name: p.name, description: p.description,
-        price: p.price, mode: p.mode, discount: p.discount, image: p.image,
-      });
-    });
+    picked.forEach(p => state.offer.items.push(libToItem(p)));
     state.selectedProductIds.clear();
     loadOfferIntoBuilder();
     goto('build');
@@ -541,7 +583,8 @@
   function buildSheet(offer) {
     const accent = offer.accent || '#e11d48';
     const items = offer.items || [];
-    const cards = items.map(it => {
+
+    const variantCard = (it) => {
       const pr = computePricing(it);
       const img = it.image
         ? `<div class="s-imgwrap"><img src="${it.image}" alt=""></div>`
@@ -556,14 +599,23 @@
       } else {
         priceBlock = `<div class="s-price"><span class="s-single">${fmt(pr.price)}</span></div>`;
       }
+      // Variant card shows only variant detail — the product title is the section heading
+      const name = it.name ? `<p class="s-name">${esc(it.name)}</p>` : '';
+      const desc = it.description ? `<p class="s-desc">${esc(it.description)}</p>` : '';
       return `<div class="scard">
         ${img}
         <div class="s-body">
-          <p class="s-name">${esc(it.name) || 'Untitled'}</p>
-          ${it.description ? `<p class="s-desc">${esc(it.description)}</p>` : '<p class="s-desc"></p>'}
+          ${name}${desc}
           ${priceBlock}
         </div>
       </div>`;
+    };
+
+    // One section per product, title shown once
+    const sections = groupItems(items).map(([title, gitems]) => {
+      const heading = title
+        ? `<div class="sgroup-title" style="border-color:${accent}">${esc(title)}</div>` : '';
+      return `<section class="sgroup">${heading}<div class="sheet-grid">${gitems.map(variantCard).join('')}</div></section>`;
     }).join('');
 
     const dealCount = items.length;
@@ -573,7 +625,7 @@
         <h1 class="sh-title">${esc(offer.title) || 'Special Offer'}</h1>
         <div class="sh-badge" style="color:${accent}">${dealCount} DEAL${dealCount === 1 ? '' : 'S'}</div>
       </div>
-      <div class="sheet-grid">${cards}</div>
+      <div class="sheet-body">${sections}</div>
       <div class="sheet-footer">
         <span>${esc(offer.footer) || ''}</span>
         <span class="sf-brand" style="color:${accent}">${esc(offer.store) || 'Offer Maker'}</span>
@@ -716,6 +768,10 @@
   async function loadAll() {
     state.products = await DB.all('products') || [];
     state.offers = await DB.all('offers') || [];
+    // Migrate legacy offer items (no `product`): the old item name becomes the product title
+    state.offers.forEach(o => (o.items || []).forEach(it => {
+      if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
+    }));
     const s = await DB.get('settings', 'app');
     if (s) state.settings = { currency: s.currency || '$', defaultStore: s.defaultStore || '' };
   }

@@ -91,7 +91,7 @@
           <button class="btn small ghost" id="pickProductsBtn">+ From library</button>
         </div>
         <div id="offerItems" class="stack"></div>
-        <button class="btn dashed full" id="addItemInlineBtn">+ Add new item</button>
+        <button class="btn dashed full" id="addItemInlineBtn">+ Add Product</button>
 
         <div class="build-actions">
           <button class="btn primary block" id="previewBtn">Preview & Export</button>
@@ -124,8 +124,12 @@
             <span>Tap to add image</span>
           </div>
         </label>
+        <label class="field hidden" id="productField">
+          <span>Product</span>
+          <input type="text" id="pProduct" placeholder="e.g. Wheel Cylinder Assy — ISUZU C240" />
+        </label>
         <label class="field">
-          <span>Product name</span>
+          <span id="pNameLabel">Product name</span>
           <input type="text" id="pName" placeholder="e.g. Front Brake Pads" />
         </label>
         <label class="field">
