@@ -456,14 +456,15 @@
         const it = state.offer.items.find(i => i._iid === editingItemIid);
         Object.assign(it, data);
       } else {
-        state.offer.items.push({ _iid: uid(), ...data });
-        // Also save the variant to the library for reuse (grouped by product title)
+        // Save the variant to the library first, then reference it (pid) so the
+        // offer stores the image once (on the product), not duplicated per offer.
         const prod = {
           id: uid(), name: data.product, description: data.description,
           price: data.price, discount: data.discount, image: data.image,
           createdAt: Date.now(), updatedAt: Date.now(),
         };
         state.products.push(prod);
+        state.offer.items.push({ _iid: uid(), pid: prod.id, ...data });
         await DB.put('products', prod);
       }
       closeModal('productModal');
@@ -483,28 +484,30 @@
     syncOfferFromForm();
     state.offer.updatedAt = Date.now();
     const existing = state.offers.find(o => o.id === state.offer.id);
+    const prodImg = new Map(state.products.map(p => [p.id, p.image]));
+    // In-memory copy keeps images (for thumbnails/preview)
+    const memItems = state.offer.items.map(({ _iid, pid, product, description, price, discount, image }) => ({
+      _iid: _iid || uid(), pid: pid || '', product: product || '', name: '',
+      description: description || '', price: price == null ? '' : price,
+      discount: discount == null ? '' : discount, image: image || null,
+    }));
     const clean = {
-      id: state.offer.id,
-      title: state.offer.title || '',
-      footer: state.offer.footer || '',
-      accent: state.offer.accent || '#e11d48',
-      // Coerce every field so a missing value (undefined) can never reject the write
-      items: state.offer.items.map(({ _iid, product, description, price, discount, image }) => ({
-        _iid: _iid || uid(),
-        product: product || '',
-        name: '',
-        description: description || '',
-        price: price == null ? '' : price,
-        discount: discount == null ? '' : discount,
-        image: image || null,
-      })),
-      createdAt: state.offer.createdAt || Date.now(),
-      updatedAt: state.offer.updatedAt || Date.now(),
+      id: state.offer.id, title: state.offer.title || '', footer: state.offer.footer || '',
+      accent: state.offer.accent || '#e11d48', items: memItems,
+      createdAt: state.offer.createdAt || Date.now(), updatedAt: state.offer.updatedAt || Date.now(),
     };
-    if (existing) Object.assign(existing, clean);
-    else state.offers.push(clean);
+    if (existing) Object.assign(existing, clean); else state.offers.push(clean);
     state.offer._isNew = false;
-    await DB.put('offers', clean);
+    // Firestore copy: drop the image when it can be resolved from its product,
+    // so the offer document stays tiny (Firestore caps a doc at ~1 MB).
+    const forDb = {
+      ...clean,
+      items: memItems.map(it => {
+        const resolvable = it.pid && prodImg.get(it.pid) && prodImg.get(it.pid) === it.image;
+        return { ...it, image: resolvable ? null : (it.image || null) };
+      }),
+    };
+    await DB.put('offers', forDb);
   }
 
   // ----- Product picker (from library) -----
@@ -530,10 +533,12 @@
       });
     });
   }
-  // Library product -> offer item: the product's name becomes the group title
+  // Library product -> offer item: the product's name becomes the group title.
+  // Keep `pid` so the image can be stored once (on the product) and resolved,
+  // instead of duplicated into the offer document.
   function libToItem(p) {
     return {
-      _iid: uid(), product: p.name || '', name: '', description: p.description,
+      _iid: uid(), pid: p.id || '', product: p.name || '', name: '', description: p.description,
       price: p.price, discount: p.discount, image: p.image,
     };
   }
@@ -643,7 +648,7 @@
       renderOffers();
     } catch (e) {
       console.error('Save failed:', e);
-      toast('Preview ready — could not save the offer', true);
+      toast('Preview ready — save failed: ' + ((e && (e.code || e.message)) || 'unknown'), true);
     }
   }
 
@@ -851,10 +856,16 @@
     state.products = (await DB.all('products') || []);
     state.products.forEach(migratePricing);
     state.offers = await DB.all('offers') || [];
-    // Migrate legacy offer items (no `product`): the old item name becomes the product title
+    // For resolving/reference of images stored once on products
+    const prodById = new Map(state.products.map(p => [p.id, p]));
+    const prodByImg = new Map(state.products.filter(p => p.image).map(p => [p.image, p.id]));
     state.offers.forEach(o => (o.items || []).forEach(it => {
       if (it.product === undefined || it.product === null) { it.product = it.name || ''; it.name = ''; }
       migratePricing(it);
+      // Resolve image stored on the product; backfill pid for legacy inline-image
+      // items (match by image) so a re-save shrinks the offer document.
+      if (it.pid && !it.image && prodById.has(it.pid)) it.image = prodById.get(it.pid).image;
+      if (!it.pid && it.image && prodByImg.has(it.image)) it.pid = prodByImg.get(it.image);
     }));
     const s = await DB.get('settings', 'app');
     if (s) state.settings = { currency: s.currency || '$', logo: s.logo || null };
